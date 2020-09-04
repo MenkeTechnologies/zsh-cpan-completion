@@ -1,6 +1,7 @@
 #compdef cpan
-
-local arguments
+#
+local arguments curcontext="$curcontext"
+typeset -A opt_args
 
 arguments=(
   '-a[creates a CPAN.pm autobundle with CPAN::Shell->autobundle.]'
@@ -35,7 +36,21 @@ arguments=(
   '-w[UNIMPLEMENTED]'
   '-x[\[ module ... \]]'
   '-X[dump all the namespaces to standard output.]'
-  '*:filename:_files'
+  '*:: :->args'
 )
 
-_arguments -s $arguments
+_arguments -s $arguments && return 0
+
+if (( CURRENT >= 1 )); then
+        case $state in
+            args)
+                # protect against overload
+                if (( $#PREFIX >= 3 )); then
+                    __cpan_modules $PREFIX
+                fi
+                _files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)" && return 0
+            ;;
+    esac
+
+fi
+

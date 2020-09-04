@@ -1,0 +1,61 @@
+function __cpan_single_module() {
+
+    local name tarball
+
+    for (( ; i <= $#searchLines; ++i )); do
+        package=$searchLines[$i]
+        if [[ $package == (#b)(Module[[:space:]]##id[[:space:]]##=[[:space:]]##)([^[:space:]]##)* ]]; then
+            name="${match[2]//:/\\:}"
+        fi
+        if [[ $package == (#b)([[:space:]]##CPAN_FILE[[:space:]]##)([^[:space:]]##)* ]]; then
+            tarball="${match[2]//:/\\:}"
+        fi
+
+        if [[ -n $name && -n $tarball ]]; then
+            ary+=("$name:$tarball")
+            break
+        fi
+
+    done
+
+    _describe -t cpan-module 'CPAN modules' ary
+}
+
+function __cpan_multiple_modules () {
+
+    local name tarball
+
+    for (( ; i <= $#searchLines; ++i )); do
+        package=$searchLines[$i]
+        if [[ $package == (#b)(Module[[:space:]]##\<[[:space:]]##)([^[:space:]]##)[[:space:]]##([^[:space:]]##)* ]]; then
+            name="${match[2]//:/\\:}"
+            tarball="${match[3]//:/\\:}"
+            ary+=("$name:$tarball")
+        fi
+    done
+
+    _describe -t cpan-module 'CPAN modules' ary
+}
+
+function __cpan_modules() {
+
+    local ary searchLines package
+
+    searchLines=("${(f@)$(perl -MCPAN -e 'CPAN::Shell->m("/'$1'/")')}")
+
+    for (( i = 1; i <= $#searchLines; ++i )); do
+        package=$searchLines[$i]
+        if [[ $package == (#b)(Module[[:space:]]##id[[:space:]]##=[[:space:]]##)([^[:space:]]##)* ]]; then
+            ((--i))
+            __cpan_single_module
+            return 0
+        elif [[ $package == (#b)(Module[[:space:]]##\<[[:space:]]##)([^[:space:]]##)[[:space:]]##([^[:space:]]##)* ]]; then
+            ((--i))
+            __cpan_multiple_modules
+            return 0
+        fi
+    done
+
+    unset i
+
+}
