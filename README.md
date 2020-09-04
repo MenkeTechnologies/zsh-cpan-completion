@@ -1,6 +1,6 @@
 # zsh-cpan-completion
 
-This plugin has all functionality of OMZ cpanm completion but it also allows `cpan install <tab>` and `cpanm install <tab>` to complete remote CPAN package from output of `perl -MCPAN -e 'CPAN::Shell->m("/$package/")'`.
+This plugin has all functionality of OMZ cpanm completion but it also allows `cpan install word<tab>` and `cpanm install <tab>` to complete remote CPAN package from output of `perl -MCPAN -e 'CPAN::Shell->m("/$package/")'`.  The word before tab completion must be >= 3 characters in length to reduce crashing of zsh from too many packages.
 
 ## Install for Oh My Zsh
 
