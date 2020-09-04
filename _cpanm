@@ -48,7 +48,7 @@ if (( CURRENT >= 1 )); then
         case $state in
             args)
                 # protect against overload
-                if (( $#PREFIX >= 3 )); then
+                if (( $#PREFIX >= $ZPWR_CPAN_MIN_PREFIX )); then
                     __cpan_modules $PREFIX
                 fi
                 _files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)" && return 0

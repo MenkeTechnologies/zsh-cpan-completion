@@ -41,7 +41,7 @@ function __cpan_modules() {
 
     local ary searchLines package
 
-    searchLines=("${(f@)$(perl -MCPAN -e 'CPAN::Shell->m("/'$1'/")')}")
+    searchLines=("${(f@)$(perl -MCPAN -e 'CPAN::Shell->m("/'$1'/")' 2>/dev/null)}")
 
     for (( i = 1; i <= $#searchLines; ++i )); do
         package=$searchLines[$i]
@@ -59,3 +59,5 @@ function __cpan_modules() {
     unset i
 
 }
+
+export ZPWR_CPAN_MIN_PREFIX=2
