@@ -27,16 +27,23 @@ function __cpan_multiple_modules () {
 
     local name tarball
 
-    for (( ; i <= $#searchLines; ++i )); do
-        package=$searchLines[$i]
-        if [[ $package == (#b)(Module[[:space:]]##\<[[:space:]]##)([^[:space:]]##)[[:space:]]##([^[:space:]]##)* ]]; then
-            name="${match[2]//:/\\:}"
-            tarball="${match[3]//:/\\:}"
-            ary+=("$name:$tarball")
-        fi
-    done
+    local cpan_cache_file
+    local -a tmp_ary
+    cpan_cache_file="cpan_${PREFIX}_cache"
 
-    _describe -t cpan-module 'CPAN modules' ary
+    if _cache_invalid $cpan_cache_file || ! _retrieve_cache $cpan_cache_file; then
+        for (( ; i <= $#searchLines; ++i )); do
+            package=$searchLines[$i]
+            if [[ $package == (#b)(Module[[:space:]]##\<[[:space:]]##)([^[:space:]]##)[[:space:]]##([^[:space:]]##)* ]]; then
+                name="${match[2]//:/\\:}"
+                tarball="${match[3]//:/\\:}"
+                tmp_ary+=("$name:$tarball")
+            fi
+        done
+        _store_cache $cpan_cache_file tmp_ary
+    fi
+
+    _describe -t cpan-module 'CPAN modules' tmp_ary
 }
 
 function __cpan_modules() {
