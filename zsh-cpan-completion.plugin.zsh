@@ -31,7 +31,7 @@ function __cpan_multiple_modules () {
     local -a tmp_ary
     cpan_cache_file="cpan_${PREFIX}_cache"
 
-    if _cache_invalid $cpan_cache_file || ! _retrieve_cache $cpan_cache_file; then
+    if ! _retrieve_cache $cpan_cache_file; then
         for (( ; i <= $#searchLines; ++i )); do
             package=$searchLines[$i]
             if [[ $package == (#b)(Module[[:space:]]##\<[[:space:]]##)([^[:space:]]##)[[:space:]]##([^[:space:]]##)* ]]; then
