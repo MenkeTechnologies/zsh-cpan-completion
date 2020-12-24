@@ -20,7 +20,9 @@ function __cpan_single_module() {
 
     done
 
-    _describe -t cpan-module 'CPAN modules' ary
+    if (( $#ary )); then
+        _describe -t cpan-module 'CPAN modules' ary
+    fi
 }
 
 function __cpan_multiple_modules () {
@@ -40,7 +42,9 @@ function __cpan_multiple_modules () {
                 tmp_ary+=("$name:$tarball")
             fi
         done
-        _store_cache $cpan_cache_file tmp_ary
+        if (( $#tmp_ary )); then
+            _store_cache $cpan_cache_file tmp_ary
+        fi
     fi
 
     _describe -t cpan-module 'CPAN modules' tmp_ary
