@@ -12,12 +12,12 @@ typeset -A opt_args
 
 arguments=(
  '(--install -i)'{--install,-i}'[Installs the modules]'
-  '(- :)--self-upgrade[Upgrades itself]'
-  '(- :)--info[Displays distribution info on CPAN]'
+  '(- * :)--self-upgrade[Upgrades itself]'
+  '(- * :)--info[Displays distribution info on CPAN]'
   '(--installdeps)--installdeps[Only install dependencies]'
   '(--look)--look[Download/unpack the distribution and then open the directory with your shell]'
-  '(- :)'{--help,-h}'[Displays help information]'
-  '(- :)'{--version,-V}'[Displays software version]'
+  '(- * :)'{--help,-h}'[Displays help information]'
+  '(- * :)'{--version,-V}'[Displays software version]'
   {--force,-f}'[Force install]'
   {--notest,-n}'[Do not run unit tests]'
   {--sudo,-S}'[sudo to run install commands]'
