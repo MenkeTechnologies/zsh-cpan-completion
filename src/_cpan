@@ -1,6 +1,7 @@
 #compdef cpan
 #
 local arguments curcontext="$curcontext"
+local ret=1
 typeset -A opt_args
 
 arguments=(
@@ -46,11 +47,14 @@ if (( CURRENT >= 1 )); then
             args)
                 # protect against overload
                 if (( $#PREFIX >= $ZPWR_CPAN_MIN_PREFIX )); then
-                    __cpan_modules $PREFIX
+                    __cpan_modules $PREFIX && ret=0
+                    _files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)" && ret=0
+                else
+                    _files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)" && ret=0
                 fi
-                _files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)" && return 0
             ;;
     esac
 
 fi
 
+return ret
