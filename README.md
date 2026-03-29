@@ -17,6 +17,8 @@
   <code>[ SYSTEM ONLINE ] [ CPAN NEURAL-LINK ACTIVE ] [ ZSH MAINFRAME CONNECTED ]</code>
 </p>
 
+[![CI](https://github.com/MenkeTechnologies/zsh-cpan-completion/actions/workflows/ci.yml/badge.svg)](https://github.com/MenkeTechnologies/zsh-cpan-completion/actions/workflows/ci.yml)
+
 ---
 
 > *"The street finds its own uses for things."* — William Gibson
