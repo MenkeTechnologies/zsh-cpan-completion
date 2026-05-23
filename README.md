@@ -9,21 +9,31 @@
              \|_________|        \|_________|
 ```
 
-<p align="center">
-  <img src="http://menketechnologies.github.io/img/zsh-cpan-completion.png?raw=true" alt="neural-link preview"/>
-</p>
-
-<p align="center">
-  <code>[ SYSTEM ONLINE ] [ CPAN NEURAL-LINK ACTIVE ] [ ZSH MAINFRAME CONNECTED ]</code>
-</p>
-
 [![CI](https://github.com/MenkeTechnologies/zsh-cpan-completion/actions/workflows/ci.yml/badge.svg)](https://github.com/MenkeTechnologies/zsh-cpan-completion/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![zsh](https://img.shields.io/badge/zsh-plugin-cyan.svg)](https://github.com/MenkeTechnologies/zpwr)
 
----
+### `[CPAN COMPLETION FOR ZSH // REMOTE PERL MODULES]`
+
+> *"Perl modules, completed from MetaCPAN."*
 
 > *"The street finds its own uses for things."* — William Gibson
 
-## // WHAT IS THIS
+### [`strykelang`](https://github.com/MenkeTechnologies/strykelang) &middot; [`zshrs`](https://github.com/MenkeTechnologies/zshrs) · [`MenkeTechnologiesMeta`](https://github.com/MenkeTechnologies/MenkeTechnologiesMeta) · [`zsh-cargo-completion`](https://github.com/MenkeTechnologies/zsh-cargo-completion) · [`zsh-gem-completion`](https://github.com/MenkeTechnologies/zsh-gem-completion) · [`zsh-more-completions`](https://github.com/MenkeTechnologies/zsh-more-completions) · [`zpwr`](https://github.com/MenkeTechnologies/zpwr)
+
+---
+
+## Table of Contents
+
+- [\[0x00\] // WHAT IS THIS](#0x00-what-is-this)
+- [\[0x01\] // JACK IN](#0x01-jack-in)
+- [\[0x02\] // CONFIG](#0x02-config)
+- [\[0x03\] // ARCHITECTURE](#0x03-architecture)
+- [\[0x04\] // LICENSE](#0x04-license)
+
+---
+
+## [0x00] // WHAT IS THIS
 
 A **zsh completion engine** that jacks directly into the CPAN network. While the corpos at OMZ gave you basic `cpanm` completion, this plugin rips open a live connection to the Perl module registry and pulls completions straight from the source.
 
@@ -39,7 +49,7 @@ Type `cpan install <module><TAB>` or `cpanm install <module><TAB>` and watch the
 
 ---
 
-## // JACK IN
+## [0x01] // JACK IN
 
 ### Zinit — *recommended neural interface*
 
@@ -68,7 +78,7 @@ Source `zsh-cpan-completion.plugin.zsh` in your `~/.zshrc` or any startup script
 
 ---
 
-## // CONFIG
+## [0x02] // CONFIG
 
 | Variable | Default | Description |
 |---|---|---|
@@ -76,7 +86,7 @@ Source `zsh-cpan-completion.plugin.zsh` in your `~/.zshrc` or any startup script
 
 ---
 
-## // ARCHITECTURE
+## [0x03] // ARCHITECTURE
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -103,7 +113,7 @@ Source `zsh-cpan-completion.plugin.zsh` in your `~/.zshrc` or any startup script
 
 ---
 
-## // LICENSE
+## [0x04] // LICENSE
 
 MIT License — Copyright (c) 2017-2020 **MenkeTechnologies**
 
@@ -111,4 +121,3 @@ Free as in freedom. Fork it. Mod it. Distribute it. The source is open.
 
 ---
 
-<p align="center"><code>[ END TRANSMISSION ]</code></p>
