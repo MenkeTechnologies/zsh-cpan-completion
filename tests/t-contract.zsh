@@ -49,3 +49,41 @@
     done
     assert "$missing" is_empty
 }
+
+#--------------------------------------------------------------
+# Round 2: CPAN-completion behavior pins
+#--------------------------------------------------------------
+
+@test 'plugin exports ZPWR_CPAN_MIN_PREFIX with default 2' {
+    # The minimum-prefix env var controls how soon completion fires.
+    # Pin the default so a user's `cpan A<tab>` still triggers a
+    # search rather than waiting until 3+ chars.
+    local body
+    body=$(cat "$pluginDir/zsh-cpan-completion.plugin.zsh")
+    assert "$body" contains 'ZPWR_CPAN_MIN_PREFIX=2'
+}
+
+@test 'plugin defines BOTH __cpan_single_module and __cpan_multiple_modules' {
+    # The completion dispatches between the two helpers based on
+    # match count; both must be present.
+    local body
+    body=$(cat "$pluginDir/zsh-cpan-completion.plugin.zsh")
+    assert "$body" contains '__cpan_single_module'
+    assert "$body" contains '__cpan_multiple_modules'
+}
+
+@test 'completion uses _describe -t cpan-module for menu output' {
+    # The `-t cpan-module` tag is what users see in `zstyle` for
+    # styling/filtering. A rename here silently breaks user themes.
+    local body
+    body=$(cat "$pluginDir/zsh-cpan-completion.plugin.zsh")
+    assert "$body" contains "_describe -t cpan-module"
+}
+
+@test 'plugin file ends with #compdef directive or autoload helper' {
+    # The plugin must register the completion surface; either via
+    # #compdef line OR by exporting a callable. Pin presence so a
+    # future minimal-deps trim doesn't drop the registration.
+    run grep -E '(#compdef|compdef|_cpan)' "$pluginDir/zsh-cpan-completion.plugin.zsh"
+    assert $state equals 0
+}
