@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="zsh-cpan-completion — Engineering report. Live remote CPAN module completion for cpan + cpanm via perl -MCPAN. 202 LOC across two #compdef files + plugin entrypoint, 62 zunit @test cases across 6 contract/syntax/unit files, 21 structural gates.">
+  <title>zsh-cpan-completion &mdash; Engineering Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="hud-static.css">
+  <link rel="stylesheet" href="tutorial.css">
+  <style>
+    .tutorial-main { max-width: 76rem; }
+
+    .file-table { width:100%;border-collapse:collapse;margin:0.6rem 0;font-size:12px; }
+    .file-table th { background:var(--bg-secondary);color:var(--cyan);font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;text-align:left;padding:7px 10px;border:1px solid var(--border); }
+    .file-table td { padding:6px 10px;border:1px solid var(--border);color:var(--text-dim);vertical-align:middle; }
+    .file-table tr:hover td { background:var(--bg-hover); }
+    .file-table td:first-child { font-family:'Share Tech Mono',monospace;color:var(--accent-light);font-weight:600;white-space:nowrap; }
+    .file-table .num { text-align:right;font-family:'Share Tech Mono',monospace; }
+    .file-table .total-row td { background:var(--bg-secondary);font-weight:700;color:var(--text);border-top:2px solid var(--cyan); }
+    .file-table code { font-size:11px;color:var(--accent-light);background:var(--bg-primary);padding:1px 4px;border-radius:2px; }
+
+    .stat-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.75rem;margin:1.2rem 0; }
+    .stat-card { border:1px solid var(--border);border-top:3px solid var(--cyan);background:var(--bg-card);padding:1rem 1.2rem;border-radius:2px;text-align:center; }
+    .stat-card .stat-val { font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;color:var(--cyan);line-height:1.1;text-shadow:0 0 20px var(--cyan-glow); }
+    .stat-card .stat-val.accent { color:var(--accent);text-shadow:0 0 20px var(--accent-glow); }
+    .stat-card .stat-val.green  { color:var(--green);text-shadow:0 0 20px rgba(57,255,20,.3); }
+    .stat-card .stat-label { font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-top:0.5rem; }
+    @keyframes glow-pulse { 0%,100%{text-shadow:0 0 20px var(--cyan-glow)}50%{text-shadow:0 0 40px var(--cyan-glow),0 0 80px var(--cyan-dim)} }
+    .stat-card .stat-val { animation:glow-pulse 3s ease-in-out infinite; }
+
+    .section-rule { border:none;border-top:1px dashed var(--border);margin:2rem 0; }
+
+    .feature-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:0.65rem;margin:0.8rem 0; }
+    .feature-card { border:1px solid var(--border);border-left:3px solid var(--cyan);background:var(--bg-card);padding:0.7rem 1rem;border-radius:2px; }
+    .feature-card h4 { font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin:0 0 0.3rem; }
+    .feature-card p { margin:0;font-size:11px;color:var(--text-dim);line-height:1.55; }
+    .feature-card code { font-size:10.5px;color:var(--accent-light);background:var(--bg-primary);padding:1px 4px;border-radius:2px; }
+    .feature-card ul { margin:0.3rem 0 0;padding-left:1.2rem;font-size:11px;color:var(--text-dim);line-height:1.6; }
+    .feature-card li code { font-size:10px; }
+  </style>
+</head>
+<body>
+  <div class="app tutorial-app" id="reportApp">
+    <div class="crt-scanline" id="crtH" aria-hidden="true"></div>
+    <div class="crt-scanline-v" id="crtV" aria-hidden="true"></div>
+
+    <header class="tutorial-header">
+      <div class="tutorial-header-inner">
+        <div>
+          <h1 class="tutorial-brand">// ZSH-CPAN-COMPLETION &mdash; ENGINEERING REPORT</h1>
+          <nav class="tutorial-crumbs" aria-label="Breadcrumb">
+            <span class="current">Engineering Report</span>
+            <span class="sep">/</span>
+            <a href="index.html">Docs</a>
+            <span class="sep">/</span>
+            <a href="https://github.com/MenkeTechnologies/zsh-cpan-completion" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <span class="sep">/</span>
+            <a href="https://github.com/MenkeTechnologies/MenkeTechnologiesMeta" target="_blank" rel="noopener noreferrer">Meta</a>
+          </nav>
+          <p style="margin:0.35rem 0 0;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:0.03em;opacity:0.75;">
+            Live remote CPAN completion &middot; <code>perl -MCPAN -e 'CPAN::Shell-&gt;m(...)'</code> dispatch &middot; <code>_describe</code>-driven menu &middot; <code>_retrieve_cache</code> / <code>_store_cache</code> per-prefix cache &middot; <code>ZPWR_CPAN_MIN_PREFIX</code> overload guard
+          </p>
+        </div>
+        <div class="tutorial-toolbar">
+          <button type="button" class="btn btn-secondary" id="btnTheme" title="Toggle light/dark">Theme</button>
+          <button type="button" class="btn btn-secondary active" id="btnCrt" title="CRT scanline overlay">CRT</button>
+          <button type="button" class="btn btn-secondary active" id="btnNeon" title="Neon border pulse">Neon</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="tutorial-main">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 1: EXECUTIVE SUMMARY           -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">&gt;_</span>EXECUTIVE SUMMARY</h2>
+      <p class="tutorial-subtitle">zsh-cpan-completion is a zsh completion plugin for the <code>cpan</code> and <code>cpanm</code> Perl module installers. Both completion files (<code>src/_cpan</code>, <code>src/_cpanm</code>) declare full <code>_arguments</code>-driven flag tables, then fall through to a shared module-search dispatcher (<code>__cpan_modules</code>) that shells out to <code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/$PREFIX/")'</code> for live remote name resolution. Results pass through zsh's <code>_describe</code> for menu rendering, and through <code>_retrieve_cache</code> / <code>_store_cache</code> for prefix-keyed disk caching &mdash; the live MetaCPAN round-trip happens at most once per prefix per shell session. A configurable prefix-length floor (<code>ZPWR_CPAN_MIN_PREFIX</code>, default <code>2</code>) gates network calls so a stray <kbd>TAB</kbd> on an empty prefix doesn't pull the whole CPAN index. The plugin entrypoint uses the standard <code>ZSH_ARGZERO</code> self-locate idiom to find its own <code>src/</code> directory and prepend it to <code>fpath</code>, so the plugin is install-location-agnostic (Zinit, Oh My Zsh custom, antibody, manual clone &mdash; all work).</p>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val">202</div><div class="stat-label">Total LOC (src + plugin)</div></div>
+        <div class="stat-card"><div class="stat-val">2</div><div class="stat-label">#compdef Completion Files</div></div>
+        <div class="stat-card"><div class="stat-val accent">62</div><div class="stat-label">zunit @test Cases</div></div>
+        <div class="stat-card"><div class="stat-val green">21</div><div class="stat-label">Structural Gates (.sh)</div></div>
+        <div class="stat-card"><div class="stat-val">6</div><div class="stat-label">zunit Files</div></div>
+        <div class="stat-card"><div class="stat-val">40</div><div class="stat-label">Git Commits</div></div>
+      </div>
+
+      <hr class="section-rule">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 2: ARCHITECTURE                 -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">~</span>ARCHITECTURE &middot; FILE STRUCTURE</h2>
+      <p class="tutorial-subtitle">Three source files do the entire job. The plugin entrypoint registers the helpers and patches <code>fpath</code>; <code>_cpan</code> and <code>_cpanm</code> declare the <code>#compdef</code> contract that zsh's completion system discovers from <code>fpath</code>.</p>
+
+      <table class="file-table">
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th class="num">Lines</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>zsh-cpan-completion.plugin.zsh</td><td class="num">79</td><td>Defines <code>__cpan_single_module</code>, <code>__cpan_multiple_modules</code>, <code>__cpan_modules</code>; sets <code>ZPWR_CPAN_MIN_PREFIX=2</code>; self-locates via <code>ZSH_ARGZERO</code>; prepends <code>src/</code> to <code>fpath</code></td></tr>
+          <tr><td>src/_cpan</td><td class="num">60</td><td><code>#compdef cpan</code> &mdash; 30+ short-flag spec lines (<code>-a</code> autobundle, <code>-i</code> install, <code>-u</code> upgrade-all, <code>-l</code> list, <code>-p</code> mirror ping, etc.); fallback to <code>__cpan_modules $PREFIX</code> + <code>.tar.gz/.tgz/.tar.bz2/.zip</code> file completion</td></tr>
+          <tr><td>src/_cpanm</td><td class="num">63</td><td><code>#compdef cpanm</code> &mdash; long+short flag pairs (<code>--install/-i</code>, <code>--force/-f</code>, <code>--sudo/-S</code>, <code>--local-lib/-l</code>, <code>--mirror</code> with <code>_urls</code> binding, <code>--format</code> with literal <code>tree/json/yaml/dists</code> set); same module + tarball fallback</td></tr>
+          <tr class="total-row"><td>Total source</td><td class="num">202</td><td>Three files, single completion namespace</td></tr>
+        </tbody>
+      </table>
+
+      <hr class="section-rule">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 3: COMPLETION COVERAGE          -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">@</span>COMPLETION COVERAGE</h2>
+      <p class="tutorial-subtitle">Two binaries, full flag surface, live remote module corpus. Both completion files share the same <code>__cpan_modules</code> dispatcher so a fix in one helper propagates to both call sites.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>cpan flag surface</h4>
+          <p>Every short flag from the cpan(1) client. Hand-curated descriptions match the man-page text. Flags requiring module-list args (<code>-A</code>, <code>-C</code>, <code>-D</code>, <code>-g</code>, <code>-G</code>, <code>-i</code>, <code>-t</code>, <code>-x</code>) fall through to <code>->args</code> state for module-name completion.</p>
+          <ul>
+            <li><code>-a</code> autobundle &middot; <code>-c</code> clean &middot; <code>-f</code> force &middot; <code>-F</code> no-lock</li>
+            <li><code>-i</code> install &middot; <code>-r</code> recompile &middot; <code>-u</code> upgrade-all</li>
+            <li><code>-l</code> list-installed &middot; <code>-O</code> show-outdated &middot; <code>-J</code> dump-config</li>
+            <li><code>-p</code> ping-mirrors &middot; <code>-P</code> find-best-mirrors</li>
+            <li><code>-s</code> shell &middot; <code>-v</code>/<code>-V</code> version &middot; <code>-h</code> help</li>
+          </ul>
+        </div>
+        <div class="feature-card">
+          <h4>cpanm flag surface</h4>
+          <p>Long+short pairs via zsh's <code>{--long,-s}</code> brace expansion, with full mutex declarations: <code>(-v --verbose --quiet -q)</code> blocks <code>--quiet</code> when <code>--verbose</code> is already on. <code>--mirror</code> binds to <code>_urls</code> for URL completion; <code>--format</code> binds to literal set <code>tree/json/yaml/dists</code>.</p>
+          <ul>
+            <li><code>--install/-i</code>, <code>--force/-f</code>, <code>--notest/-n</code>, <code>--sudo/-S</code></li>
+            <li><code>--verbose/-v</code> &harr; <code>--quiet/-q</code> (mutex pair)</li>
+            <li><code>--local-lib/-l</code>, <code>--local-lib-contained/-L</code></li>
+            <li><code>--mirror</code>:<code>_urls</code>, <code>--format</code>:(tree json yaml dists)</li>
+            <li><code>--self-upgrade</code>, <code>--info</code>, <code>--installdeps</code>, <code>--look</code>, <code>--reinstall</code></li>
+          </ul>
+        </div>
+        <div class="feature-card">
+          <h4>Module name corpus (live)</h4>
+          <p><code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/'$PREFIX'/")' 2&gt;/dev/null</code> &mdash; runs the CPAN.pm shell's <code>m</code> ("module") command with a regex anchored on the user's typed prefix. Output is parsed by line, matching two shapes: single-module verbose output (<code>Module id = ...</code> + <code>CPAN_FILE ...</code>) and multi-module listing (<code>Module &lt; name tarball</code>). Colons in names are backslash-escaped so <code>_describe</code> doesn't split them as separators.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Tarball file completion</h4>
+          <p>Both completion files also offer <code>.tar.gz</code> / <code>.tgz</code> / <code>.tar.bz2</code> / <code>.zip</code> file matches via <code>_files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)"</code> &mdash; the <code>-/</code> flag also offers directories (so you can <kbd>TAB</kbd> into nested paths) and the <code>(-.)</code> glob qualifier restricts matches to regular files (no symlinks dangling at deleted tarballs).</p>
+        </div>
+      </div>
+
+      <hr class="section-rule">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 4: TEST COVERAGE                -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">#</span>TEST COVERAGE</h2>
+      <p class="tutorial-subtitle">62 zunit <code>@test</code> cases across 6 files, plus 21 structural shell gates that the MenkeTechnologiesMeta umbrella enforces on every submodule's <code>docs/</code>, <code>README.md</code>, <code>tests/</code>, and <code>.github/workflows/</code>.</p>
+
+      <table class="file-table">
+        <thead>
+          <tr>
+            <th>Test file</th>
+            <th class="num">@test count</th>
+            <th>What it pins</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>tests/t-unit.zsh</td><td class="num">37</td><td>End-to-end unit tests &mdash; <code>ZPWR_CPAN_MIN_PREFIX=2</code> contract, <code>fpath</code> contains <code>src/</code>, <code>_cpan</code> and <code>_cpanm</code> files exist + start with <code>#compdef</code>, helper functions defined, parse cleanness under <code>zsh -n</code></td></tr>
+          <tr><td>tests/t-contract.zsh</td><td class="num">7</td><td>Plugin-contract pins: entrypoint stem matches plugin-dir basename (so <code>zsh-cpan-completion/zsh-cpan-completion.plugin.zsh</code> stays copy-pasteable), every <code>_*</code> file under <code>src/</code> starts with <code>#compdef</code></td></tr>
+          <tr><td>tests/t-contract2.zsh</td><td class="num">6</td><td>Self-locate idiom pin &mdash; <code>0="${${0:#$ZSH_ARGZERO}:-${(%):-%N}}"</code> + <code>0="${${(M)0:#/*}:-$PWD/$0}"</code> + <code>fpath=("${0:h}/src" $fpath)</code> all present</td></tr>
+          <tr><td>tests/t-contract3.zsh</td><td class="num">5</td><td>Completion-function shape &mdash; <code>__cpan_modules</code> takes a prefix arg, <code>__cpan_single_module</code> + <code>__cpan_multiple_modules</code> render via <code>_describe</code></td></tr>
+          <tr><td>tests/t-contract4.zsh</td><td class="num">5</td><td>Cache invariants &mdash; <code>_retrieve_cache</code> / <code>_store_cache</code> are called with prefix-keyed names (<code>cpan_${PREFIX}_cache</code>) and never with bare <code>$PREFIX</code></td></tr>
+          <tr><td>tests/t-syntax.zsh</td><td class="num">2</td><td><code>zsh -n</code> parse-cleanness on entrypoint + every <code>src/_*</code> file</td></tr>
+          <tr class="total-row"><td>Total</td><td class="num">62</td><td>6 zunit files</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:1.5px;color:var(--cyan);margin-top:1.5rem;">// STRUCTURAL GATES (21 shell scripts)</h3>
+      <p style="font-size:11.5px;color:var(--text-dim);line-height:1.6;">The shared umbrella gate-set runs against every submodule. They aren't unit tests &mdash; they are <strong>contract pins</strong> that the repo's static-content surface (docs, README, workflow YAML, test shell shebangs) stays consistent with the meta-repo conventions. Categories:</p>
+      <ul style="font-size:11px;color:var(--text-dim);line-height:1.6;">
+        <li><strong>docs/*.html gates (9):</strong> <code>docs-has-h1</code>, <code>docs-has-body-tag</code>, <code>docs-has-html-closing</code>, <code>docs-final-newline</code>, <code>docs-no-deprecated-tags</code>, <code>docs-no-http-links</code> (https-only), <code>docs-no-inline-handlers</code> (Tauri-CSP-safe), <code>docs-no-placeholder-href</code> (no placeholder hash-only hrefs), <code>docs-target-blank-rel-noopener</code> (tab-nabbing-safe)</li>
+        <li><strong>README.md gates (4):</strong> <code>readme-final-newline</code>, <code>readme-has-badges</code>, <code>readme-has-h2-section</code>, <code>readme-has-https-link</code></li>
+        <li><strong>man-page gates (3):</strong> <code>man-page-final-newline</code>, <code>man-page-no-trailing-whitespace</code>, <code>man-page-synopsis-section</code></li>
+        <li><strong>tests/ gates (2):</strong> <code>tests-shell-executable</code> (mode +x), <code>tests-shell-shebang</code></li>
+        <li><strong>.github/workflows/ gates (2):</strong> <code>workflow-final-newline</code>, <code>workflow-no-tabs</code></li>
+        <li><strong>cargo gate (1):</strong> <code>cargo-final-newline</code> (vacuously passes &mdash; no Cargo.toml in this repo)</li>
+      </ul>
+
+      <hr class="section-rule">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 5: KEY DESIGN DECISIONS         -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">?</span>KEY DESIGN DECISIONS</h2>
+      <p class="tutorial-subtitle">Five places this plugin could have gone the other way, and why it didn't.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>Live remote, not static list</h4>
+          <p>Most OMZ-style completions ship a frozen module list inlined as a zsh array literal &mdash; cheap, but stale within a week of release. <code>__cpan_modules</code> instead shells out to <code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/'$PREFIX'/")'</code> at completion time, so newly-published modules show up the moment CPAN's index sees them. Cost: one Perl interpreter spawn + a network call per prefix per shell session. <code>_retrieve_cache</code> absorbs the cost on subsequent <kbd>TAB</kbd>s.</p>
+        </div>
+        <div class="feature-card">
+          <h4><code>ZPWR_CPAN_MIN_PREFIX</code> floor</h4>
+          <p>A <kbd>TAB</kbd> on an empty prefix would ask CPAN for the entire module index &mdash; tens of thousands of names, several seconds of network, and zsh's menu rendering choking on the result. The plugin requires <code>$#PREFIX &gt;= ZPWR_CPAN_MIN_PREFIX</code> (default <code>2</code>) before issuing the remote query; below that, only tarball file-completion runs. The env var is user-tunable for slow networks or fast hardware.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Prefix-keyed cache, not session-global</h4>
+          <p>Cache file is <code>cpan_${PREFIX}_cache</code> &mdash; one cache entry per typed prefix. Means typing <code>Mo</code> then <code>Moo</code> then <code>Moose</code> hits three separate caches but each is correctly scoped (you don't get <code>Mo*</code> results bleeding into <code>Moose</code>'s menu). zsh's <code>_retrieve_cache</code> / <code>_store_cache</code> handle the actual on-disk layout (<code>~/.zcompcache/</code> by default).</p>
+        </div>
+        <div class="feature-card">
+          <h4><code>ZSH_ARGZERO</code> self-locate</h4>
+          <p>The entrypoint uses the canonical two-line idiom <code>0="${${0:#$ZSH_ARGZERO}:-${(%):-%N}}"</code> + <code>0="${${(M)0:#/*}:-$PWD/$0}"</code> to resolve its own absolute path regardless of how it was loaded (sourced, autoloaded, Zinit-installed under a hashed path). That lets <code>fpath=("${0:h}/src" $fpath)</code> work without any user-supplied <code>$ZSH_CUSTOM</code>-style env var.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Two binaries, one helper namespace</h4>
+          <p>cpan and cpanm have wildly different flag surfaces but identical module-name semantics: type a prefix, get a list of CPAN packages. Both <code>_cpan</code> and <code>_cpanm</code> delegate to the same <code>__cpan_modules</code>/<code>__cpan_single_module</code>/<code>__cpan_multiple_modules</code> trio defined in the plugin entrypoint &mdash; one bug fix, two call sites updated.</p>
+        </div>
+      </div>
+
+    </main>
+
+    <footer style="text-align:center;padding:2rem;font-size:10px;color:var(--text-muted);font-family:'Orbitron',sans-serif;letter-spacing:2px;">
+      ZSH-CPAN-COMPLETION ENGINEERING REPORT &middot; 202 LOC &middot; 2 #COMPDEF FILES &middot; 62 ZUNIT @TEST CASES &middot; 21 STRUCTURAL GATES &middot; LIVE METACPAN &middot; MENKETECHNOLOGIES
+    </footer>
+  </div>
+
+  <script>
+    const html = document.documentElement;
+    const btnTheme = document.getElementById('btnTheme');
+    const btnCrt = document.getElementById('btnCrt');
+    const btnNeon = document.getElementById('btnNeon');
+    const crtH = document.getElementById('crtH');
+    const crtV = document.getElementById('crtV');
+    btnTheme?.addEventListener('click', () => {
+      html.setAttribute('data-theme', html.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+    btnCrt?.addEventListener('click', () => {
+      btnCrt.classList.toggle('active');
+      const on = btnCrt.classList.contains('active');
+      if (crtH) crtH.style.display = on ? '' : 'none';
+      if (crtV) crtV.style.display = on ? '' : 'none';
+    });
+    btnNeon?.addEventListener('click', () => {
+      btnNeon.classList.toggle('active');
+      document.querySelector('.app')?.classList.toggle('neon-off');
+    });
+  </script>
+</body>
+</html>
