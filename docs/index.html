@@ -35,7 +35,7 @@
     <header class="tutorial-header">
       <div class="tutorial-header-inner">
         <div>
-          <h1 class="tutorial-brand">// ZSH-CPAN-COMPLETION &mdash; LIVE METACPAN COMPLETION FOR cpan / cpanm</h1>
+          <h1 class="tutorial-brand">// ZSH-CPAN-COMPLETION &mdash; LIVE CPAN MODULE COMPLETION FOR cpan / cpanm</h1>
           <nav class="tutorial-crumbs" aria-label="Breadcrumb">
             <span class="current">Docs</span>
             <span class="sep">/</span>
@@ -87,20 +87,128 @@ source zsh-cpan-completion/zsh-cpan-completion.plugin.zsh</pre>
       </section>
 
       <section class="tutorial-section">
+        <h2>What it does</h2>
+        <p>Two zsh <code>#compdef</code> completion files &mdash; <code>src/_cpan</code> (for the <code>cpan</code> CPAN.pm client) and <code>src/_cpanm</code> (for <code>cpanm</code> / App::cpanminus) &mdash; plus a plugin entrypoint that defines the shared module-search helpers and prepends <code>src/</code> to <code>fpath</code>. Both completion files declare their full flag table via <code>_arguments -s</code>, then fall through to a single shared dispatcher, <code>__cpan_modules</code>, that runs <code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/$PREFIX/")'</code> at completion time to resolve module names from the live CPAN index. Results render through zsh's <code>_describe</code> and are cached per-prefix via <code>_retrieve_cache</code> / <code>_store_cache</code>, so the Perl spawn happens at most once per prefix per shell session.</p>
+      </section>
+
+      <section class="tutorial-section">
         <h2>Configuration</h2>
+        <p>One environment variable. It is exported with a default of <code>2</code> by the plugin entrypoint (<code>export ZPWR_CPAN_MIN_PREFIX=2</code>); set it in <code>~/.zshrc</code> before the plugin loads to override.</p>
         <table class="example-tbl">
           <tbody>
-            <tr><td><code>ZPWR_CPAN_MIN_PREFIX</code></td><td>default <code>2</code> &mdash; minimum prefix length before querying remote CPAN. Lower = more data, higher latency / crash risk.</td></tr>
+            <tr><td><code>ZPWR_CPAN_MIN_PREFIX</code></td><td>default <code>2</code> &mdash; minimum number of characters typed before a live remote CPAN query fires. Below this length, only local tarball file-completion runs (no network call). It exists to keep a stray <kbd>TAB</kbd> on a one-character or empty prefix from asking CPAN for the entire module index. Lower = more eager remote lookups, higher latency / overload risk; raise it on slow networks.</td></tr>
+          </tbody>
+        </table>
+<pre># ~/.zshrc &mdash; require 3 chars before hitting the network
+export ZPWR_CPAN_MIN_PREFIX=3
+zinit load MenkeTechnologies/zsh-cpan-completion</pre>
+      </section>
+
+      <section class="tutorial-section">
+        <h2>How completion fires</h2>
+        <p>For both <code>cpan</code> and <code>cpanm</code>, when you <kbd>TAB</kbd> in a positional (module-name) argument:</p>
+        <ol>
+          <li>The completion file checks <code>$#PREFIX &gt;= $ZPWR_CPAN_MIN_PREFIX</code>. If the typed prefix is too short, it skips the network and offers only tarball files (<code>.tar.gz</code>, <code>.tgz</code>, <code>.tar.bz2</code>, <code>.zip</code>) plus directories via <code>_files -/ -g "*.(tar.gz|tgz|tar.bz2|zip)(-.)"</code>.</li>
+          <li>If the prefix is long enough, it calls <code>__cpan_modules $PREFIX</code>, which spawns <code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/$PREFIX/")'</code> &mdash; the CPAN.pm shell's <code>m</code> (module) command with a regex anchored on your prefix.</li>
+          <li>The Perl output is split into lines and matched against two shapes: single-module verbose output (a <code>Module id = NAME</code> line paired with a <code>CPAN_FILE TARBALL</code> line, handled by <code>__cpan_single_module</code>) and the multi-module short listing (<code>Module &lt; NAME TARBALL</code>, handled by <code>__cpan_multiple_modules</code>). Colons in module names are backslash-escaped so <code>_describe</code> doesn't treat them as value/description separators.</li>
+          <li>Each entry is built as <code>name:tarball</code> and passed to <code>_describe -t cpan-module 'CPAN modules'</code>, which renders the completion menu with the tarball shown as the description.</li>
+          <li>For the multi-module path, the parsed list is stored with <code>_store_cache cpan_${PREFIX}_cache</code>; subsequent <kbd>TAB</kbd>s on the same prefix are served from <code>_retrieve_cache</code> with no Perl spawn.</li>
+        </ol>
+      </section>
+
+      <section class="tutorial-section">
+        <h2>cpan flag reference</h2>
+        <p>Every short flag the <code>cpan(1)</code> client accepts, taken from <code>src/_cpan</code>. Flags whose description is a bracketed <code>[ module ... ]</code> / <code>[ author ... ]</code> placeholder take list arguments and fall through to module-name completion.</p>
+        <table class="example-tbl">
+          <tbody>
+            <tr><td><code>-a</code></td><td>create a CPAN.pm autobundle with <code>CPAN::Shell-&gt;autobundle</code></td></tr>
+            <tr><td><code>-A</code> <code>-C</code> <code>-D</code></td><td>take <code>[ module ... ]</code> arguments</td></tr>
+            <tr><td><code>-c</code></td><td>run <code>make clean</code> in the specified modules' directories</td></tr>
+            <tr><td><code>-f</code></td><td>force the specified action when it would normally have failed</td></tr>
+            <tr><td><code>-F</code></td><td>turn off CPAN.pm's attempts to lock anything</td></tr>
+            <tr><td><code>-g</code> <code>-G</code></td><td>take <code>[ module ... ]</code> arguments</td></tr>
+            <tr><td><code>-h</code></td><td>print a help message and exit</td></tr>
+            <tr><td><code>-i</code></td><td>install the specified <code>[ module ... ]</code></td></tr>
+            <tr><td><code>-I</code></td><td>load <code>local::lib</code></td></tr>
+            <tr><td><code>-j</code></td><td>load a config file (<code>.pm</code>)</td></tr>
+            <tr><td><code>-J</code></td><td>dump the configuration in CPAN.pm's own format</td></tr>
+            <tr><td><code>-l</code></td><td>list all installed modules with their versions</td></tr>
+            <tr><td><code>-L</code></td><td>take <code>[ author ... ]</code> arguments</td></tr>
+            <tr><td><code>-m</code></td><td>make the specified modules</td></tr>
+            <tr><td><code>-M</code></td><td>set the mirror list (<code>mirror1,mirror2,...</code>)</td></tr>
+            <tr><td><code>-n</code></td><td>dry run &mdash; don't actually install (unimplemented)</td></tr>
+            <tr><td><code>-O</code></td><td>show the out-of-date modules</td></tr>
+            <tr><td><code>-p</code></td><td>ping the configured mirrors and print a report</td></tr>
+            <tr><td><code>-P</code></td><td>find the best mirrors and use them</td></tr>
+            <tr><td><code>-r</code></td><td>recompile dynamically loaded modules via <code>CPAN::Shell-&gt;recompile</code></td></tr>
+            <tr><td><code>-s</code></td><td>drop into the CPAN.pm shell</td></tr>
+            <tr><td><code>-t</code> <code>-x</code></td><td>take <code>[ module ... ]</code> arguments</td></tr>
+            <tr><td><code>-T</code></td><td>do not test modules; simply install them</td></tr>
+            <tr><td><code>-u</code></td><td>upgrade all installed modules</td></tr>
+            <tr><td><code>-v</code></td><td>print the script version and CPAN.pm version, then exit</td></tr>
+            <tr><td><code>-V</code></td><td>print detailed information about the cpan client</td></tr>
+            <tr><td><code>-w</code></td><td>unimplemented</td></tr>
+            <tr><td><code>-X</code></td><td>dump all namespaces to standard output</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="tutorial-section">
+        <h2>cpanm flag reference</h2>
+        <p>Long+short flag pairs from <code>src/_cpanm</code> (cpanminus completion, supported version <code>1.4000</code>). Pairs are declared with zsh brace expansion (<code>{--long,-s}</code>); several carry mutex groups so conflicting flags drop out of the menu.</p>
+        <table class="example-tbl">
+          <tbody>
+            <tr><td><code>--install</code> / <code>-i</code></td><td>install the modules</td></tr>
+            <tr><td><code>--self-upgrade</code></td><td>upgrade cpanm itself</td></tr>
+            <tr><td><code>--info</code></td><td>display distribution info on CPAN</td></tr>
+            <tr><td><code>--installdeps</code></td><td>only install dependencies</td></tr>
+            <tr><td><code>--look</code></td><td>download/unpack the distribution and open the directory in your shell</td></tr>
+            <tr><td><code>--help</code> / <code>-h</code></td><td>display help information</td></tr>
+            <tr><td><code>--version</code> / <code>-V</code></td><td>display software version</td></tr>
+            <tr><td><code>--force</code> / <code>-f</code></td><td>force install</td></tr>
+            <tr><td><code>--notest</code> / <code>-n</code></td><td>do not run unit tests</td></tr>
+            <tr><td><code>--sudo</code> / <code>-S</code></td><td>use sudo to run install commands</td></tr>
+            <tr><td><code>--verbose</code> / <code>-v</code></td><td>turn on chatty output (mutex with <code>--quiet</code>)</td></tr>
+            <tr><td><code>--quiet</code> / <code>-q</code></td><td>turn off all output (mutex with <code>--verbose</code>)</td></tr>
+            <tr><td><code>--local-lib</code> / <code>-l</code></td><td>specify the install base for modules</td></tr>
+            <tr><td><code>--local-lib-contained</code> / <code>-L</code></td><td>specify the install base for all non-core modules</td></tr>
+            <tr><td><code>--mirror</code></td><td>base URL for the mirror &mdash; completes URLs via <code>_urls</code></td></tr>
+            <tr><td><code>--mirror-only</code></td><td>use the mirror's index file instead of the CPAN Meta DB</td></tr>
+            <tr><td><code>--prompt</code></td><td>prompt when configure/build/test fails</td></tr>
+            <tr><td><code>--reinstall</code></td><td>reinstall even if the latest version is already installed</td></tr>
+            <tr><td><code>--interactive</code></td><td>turn on interactive configure</td></tr>
+            <tr><td><code>--scandeps</code></td><td>scan dependencies and output the tree as text</td></tr>
+            <tr><td><code>--format</code></td><td>scandeps output format &mdash; completes literal set <code>tree</code> / <code>json</code> / <code>yaml</code> / <code>dists</code></td></tr>
+            <tr><td><code>--save-dists</code></td><td>directory path to copy downloaded tarballs into</td></tr>
+            <tr><td><code>--uninst-shadows</code></td><td>uninstall shadow files of the distribution being installed</td></tr>
+            <tr><td><code>--auto-cleanup</code></td><td>days until cpanm's work directories expire (default 7)</td></tr>
+            <tr><td><code>--man-pages</code> / <code>--no-man-pages</code></td><td>generate (or skip) man1/man3 man pages (mutex pair)</td></tr>
+            <tr><td><code>--lwp</code> / <code>--wget</code> / <code>--curl</code></td><td>choose the downloader backend</td></tr>
           </tbody>
         </table>
       </section>
 
       <section class="tutorial-section">
         <h2>Examples</h2>
-<pre>cpan install Mo&lt;TAB&gt;        # live remote completion: Moose, Mojo::*, Module::*
-cpanm install DBI&lt;TAB&gt;      # same path via cpanm
-cpan -j /path/to/config.pm  # full flag completion
-cpan install ./Some-1.0.tar.gz  # tarball file completion</pre>
+<pre>cpan install Mo&lt;TAB&gt;        # live remote completion of modules matching /Mo/
+cpanm install DBI&lt;TAB&gt;      # same shared dispatcher via cpanm
+cpan -&lt;TAB&gt;                  # short-flag menu: -a -i -l -u -p ...
+cpanm --&lt;TAB&gt;               # long-flag menu: --install --force --scandeps ...
+cpanm --format &lt;TAB&gt;        # literal set: tree json yaml dists
+cpanm --mirror &lt;TAB&gt;        # _urls completion for the mirror base URL
+cpan install ./Some-1.0.tar.gz  # tarball file completion (.tar.gz/.tgz/.tar.bz2/.zip)</pre>
+      </section>
+
+      <section class="tutorial-section">
+        <h2>Troubleshooting</h2>
+        <table class="example-tbl">
+          <tbody>
+            <tr><td>No module names appear</td><td>Confirm <code>perl</code> with the <code>CPAN</code> core module is on <code>PATH</code> (<code>perl -MCPAN -e 1</code> must succeed) and that CPAN.pm has been configured at least once. The query is silenced with <code>2&gt;/dev/null</code>, so a missing/unconfigured CPAN.pm yields an empty menu rather than an error.</td></tr>
+            <tr><td>Nothing happens until 2+ chars</td><td>Expected. The remote query is gated by <code>ZPWR_CPAN_MIN_PREFIX</code> (default <code>2</code>). Type more characters or lower the variable.</td></tr>
+            <tr><td>First <kbd>TAB</kbd> is slow, later ones fast</td><td>The first lookup spawns Perl and hits the network; results are cached per prefix via <code>_store_cache</code>, so repeats on the same prefix are served from <code>_retrieve_cache</code>.</td></tr>
+            <tr><td>Completion not found at all</td><td>Ensure the plugin was sourced so its <code>fpath=("${0:h}/src" $fpath)</code> line ran before <code>compinit</code>. With Zinit, use <code>nocompile</code> as shown in Install.</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <section class="tutorial-section">

@@ -79,7 +79,7 @@
       <!-- SECTION 1: EXECUTIVE SUMMARY           -->
       <!-- ═══════════════════════════════════════ -->
       <h2 class="tutorial-title"><span class="step-hash">&gt;_</span>EXECUTIVE SUMMARY</h2>
-      <p class="tutorial-subtitle">zsh-cpan-completion is a zsh completion plugin for the <code>cpan</code> and <code>cpanm</code> Perl module installers. Both completion files (<code>src/_cpan</code>, <code>src/_cpanm</code>) declare full <code>_arguments</code>-driven flag tables, then fall through to a shared module-search dispatcher (<code>__cpan_modules</code>) that shells out to <code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/$PREFIX/")'</code> for live remote name resolution. Results pass through zsh's <code>_describe</code> for menu rendering, and through <code>_retrieve_cache</code> / <code>_store_cache</code> for prefix-keyed disk caching &mdash; the live MetaCPAN round-trip happens at most once per prefix per shell session. A configurable prefix-length floor (<code>ZPWR_CPAN_MIN_PREFIX</code>, default <code>2</code>) gates network calls so a stray <kbd>TAB</kbd> on an empty prefix doesn't pull the whole CPAN index. The plugin entrypoint uses the standard <code>ZSH_ARGZERO</code> self-locate idiom to find its own <code>src/</code> directory and prepend it to <code>fpath</code>, so the plugin is install-location-agnostic (Zinit, Oh My Zsh custom, antibody, manual clone &mdash; all work).</p>
+      <p class="tutorial-subtitle">zsh-cpan-completion is a zsh completion plugin for the <code>cpan</code> and <code>cpanm</code> Perl module installers. Both completion files (<code>src/_cpan</code>, <code>src/_cpanm</code>) declare full <code>_arguments</code>-driven flag tables, then fall through to a shared module-search dispatcher (<code>__cpan_modules</code>) that shells out to <code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/$PREFIX/")'</code> for live remote name resolution. Results pass through zsh's <code>_describe</code> for menu rendering, and through <code>_retrieve_cache</code> / <code>_store_cache</code> for prefix-keyed disk caching &mdash; the live CPAN round-trip (the CPAN.pm client's own query against the configured mirror, not the MetaCPAN REST API) happens at most once per prefix per shell session. A configurable prefix-length floor (<code>ZPWR_CPAN_MIN_PREFIX</code>, default <code>2</code>) gates network calls so a stray <kbd>TAB</kbd> on an empty prefix doesn't pull the whole CPAN index. The plugin entrypoint uses the standard <code>ZSH_ARGZERO</code> self-locate idiom to find its own <code>src/</code> directory and prepend it to <code>fpath</code>, so the plugin is install-location-agnostic (Zinit, Oh My Zsh custom, antibody, manual clone &mdash; all work).</p>
 
       <div class="stat-grid">
         <div class="stat-card"><div class="stat-val">202</div><div class="stat-label">Total LOC (src + plugin)</div></div>
@@ -87,7 +87,7 @@
         <div class="stat-card"><div class="stat-val accent">62</div><div class="stat-label">zunit @test Cases</div></div>
         <div class="stat-card"><div class="stat-val green">21</div><div class="stat-label">Structural Gates (.sh)</div></div>
         <div class="stat-card"><div class="stat-val">6</div><div class="stat-label">zunit Files</div></div>
-        <div class="stat-card"><div class="stat-val">40</div><div class="stat-label">Git Commits</div></div>
+        <div class="stat-card"><div class="stat-val">1</div><div class="stat-label">Config Env Var</div></div>
       </div>
 
       <hr class="section-rule">
@@ -224,10 +224,65 @@
         </div>
       </div>
 
+      <hr class="section-rule">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 6: DATA FLOW & PARSE CONTRACT   -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">&gt;</span>DATA FLOW &middot; PARSE CONTRACT</h2>
+      <p class="tutorial-subtitle">From keystroke to menu. The dispatcher reads the CPAN.pm client's <code>m</code>-command output and normalizes it into the <code>name:tarball</code> pairs <code>_describe</code> expects.</p>
+
+      <table class="file-table">
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Mechanism</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Gate</td><td><code>$#PREFIX &gt;= $ZPWR_CPAN_MIN_PREFIX</code></td><td>Below the floor (default <code>2</code>), only tarball file-completion runs &mdash; no Perl spawn, no network.</td></tr>
+          <tr><td>Query</td><td><code>perl -MCPAN -e 'CPAN::Shell-&gt;m("/$PREFIX/")' 2&gt;/dev/null</code></td><td>CPAN.pm shell <code>m</code> (module) command, regex anchored on the typed prefix; stderr discarded so an unconfigured CPAN.pm yields an empty menu, not an error.</td></tr>
+          <tr><td>Split</td><td><code>("${(f@)$(...)}")</code></td><td>Output captured and split on newlines into <code>searchLines</code> via the <code>(f)</code> parameter flag.</td></tr>
+          <tr><td>Shape detect</td><td><code>__cpan_modules</code> loop</td><td>Scans lines; a <code>Module id = ...</code> line routes to <code>__cpan_single_module</code>, a <code>Module &lt; name tarball</code> line routes to <code>__cpan_multiple_modules</code>; loop index is rewound (<code>((--i))</code>) so the matched line is re-read by the chosen parser.</td></tr>
+          <tr><td>Parse (single)</td><td><code>__cpan_single_module</code></td><td>Pairs a <code>Module id = NAME</code> line with the next <code>CPAN_FILE TARBALL</code> line into one <code>name:tarball</code> entry.</td></tr>
+          <tr><td>Parse (multi)</td><td><code>__cpan_multiple_modules</code></td><td>Each <code>Module &lt; NAME TARBALL</code> line becomes a <code>name:tarball</code> entry; the assembled list is written to <code>cpan_${PREFIX}_cache</code> via <code>_store_cache</code> (skipped if <code>_retrieve_cache</code> already had it).</td></tr>
+          <tr><td>Escape</td><td><code>${match[n]//:/\\:}</code></td><td>Colons in module names (e.g. <code>Mojo::URL</code>) are backslash-escaped so <code>_describe</code> doesn't split <code>name:tarball</code> at the wrong colon.</td></tr>
+          <tr><td>Render</td><td><code>_describe -t cpan-module 'CPAN modules' ary</code></td><td>zsh draws the completion menu; the tarball is shown as each candidate's description.</td></tr>
+        </tbody>
+      </table>
+
+      <hr class="section-rule">
+
+      <!-- ═══════════════════════════════════════ -->
+      <!-- SECTION 7: INSTALL & INTEGRATION        -->
+      <!-- ═══════════════════════════════════════ -->
+      <h2 class="tutorial-title"><span class="step-hash">+</span>INSTALL &middot; INTEGRATION</h2>
+      <p class="tutorial-subtitle">The entrypoint is install-location-agnostic. It resolves its own path, then prepends <code>src/</code> to <code>fpath</code> so zsh's completion system discovers <code>_cpan</code> / <code>_cpanm</code> by their <code>#compdef</code> tags.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>Zinit</h4>
+          <p><code>zinit ice lucid nocompile</code> then <code>zinit load MenkeTechnologies/zsh-cpan-completion</code>. <code>nocompile</code> matters: the entrypoint must run its <code>fpath</code> patch at load, not be byte-compiled in isolation.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Oh My Zsh</h4>
+          <p>Clone into <code>$HOME/.oh-my-zsh/custom/plugins/zsh-cpan-completion</code> and add <code>zsh-cpan-completion</code> to the <code>plugins=()</code> array in <code>~/.zshrc</code>.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Manual</h4>
+          <p>Clone anywhere and <code>source zsh-cpan-completion/zsh-cpan-completion.plugin.zsh</code> from a startup script. The <code>ZSH_ARGZERO</code> self-locate finds <code>src/</code> relative to wherever the entrypoint actually lives.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Prerequisites</h4>
+          <p><code>perl</code> with the core <code>CPAN</code> module on <code>PATH</code> (<code>perl -MCPAN -e 1</code> must succeed) and a CPAN.pm that has been configured once. No external crates, services, or daemons &mdash; the plugin is pure zsh + a per-completion Perl spawn.</p>
+        </div>
+      </div>
+
     </main>
 
     <footer style="text-align:center;padding:2rem;font-size:10px;color:var(--text-muted);font-family:'Orbitron',sans-serif;letter-spacing:2px;">
-      ZSH-CPAN-COMPLETION ENGINEERING REPORT &middot; 202 LOC &middot; 2 #COMPDEF FILES &middot; 62 ZUNIT @TEST CASES &middot; 21 STRUCTURAL GATES &middot; LIVE METACPAN &middot; MENKETECHNOLOGIES
+      ZSH-CPAN-COMPLETION ENGINEERING REPORT &middot; 202 LOC &middot; 2 #COMPDEF FILES &middot; 62 ZUNIT @TEST CASES &middot; 21 STRUCTURAL GATES &middot; LIVE CPAN.PM QUERY &middot; MENKETECHNOLOGIES
     </footer>
   </div>
 

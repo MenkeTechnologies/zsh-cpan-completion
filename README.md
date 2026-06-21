@@ -15,7 +15,7 @@
 
 ### `[CPAN COMPLETION FOR ZSH // REMOTE PERL MODULES]`
 
-> *"Perl modules, completed from MetaCPAN."*
+> *"Perl modules, completed from CPAN."*
 
 > *"The street finds its own uses for things."* — William Gibson
 
